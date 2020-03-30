@@ -1,27 +1,22 @@
- # A server program which accepts requests from clients to capitalize strings. When
- # clients connect, a new thread is started to handle a client. The receiving of the
- # client data, the capitalizing, and the sending back of the data is handled on the
- # worker thread, allowing much greater throughput because more clients can be handled
- # concurrently.
+#!/usr/bin/env python3
 
-import socketserver
-import threading
+import socket
 
-class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    daemon_threads = True
-    allow_reuse_address = True
+s = socket.socket()
+print('Socket created')
 
-class CapitalizeHandler(socketserver.StreamRequestHandler):
-    def handle(self):
-        client = f'{self.client_address} on {threading.currentThread().getName()}'
-        print(f'Connected: {client}')
-        while True:
-            data = self.rfile.readline()
-            if not data:
-                break
-            self.wfile.write(data.decode('utf-8').upper().encode('utf-8'))
-        print(f'Closed: {client}')
+port = 12345
 
-with ThreadedTCPServer(('', 59898), CapitalizeHandler) as server:
-    print(f'The capitalization server is running...')
-    server.serve_forever()
+s.bind(('', port))
+print('Socket bound to ', port)
+
+s.listen(5)
+print('Socket is listening')
+
+while True:
+    c, addr = s.accept()
+    print('Got connection from', addr)
+    c.send(b'Thank you for connecting')
+    c.close()
+
+
