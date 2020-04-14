@@ -9,6 +9,7 @@ PORT = int(sys.argv[2])
 encoding = 'ascii'
 active = False
 
+
 def start_game(s):
     try:
         s.connect((HOST, PORT))
@@ -30,25 +31,27 @@ def start_game(s):
 
 def manage_input(s):
     data = ""
-    entry = input("What's your guess?")
-    if entry == "{quit}" or entry == "":
-        print("Exiting game...")
+    data = (s.recv(1024)).decode(encoding)
+    if len(data) == 0:
+        print("Sorry, connection to the server has been lost. Exiting game...")
+        return False
+    elif "You got it!" in data:
+        print(data)
         s.close()
         return False
     else:
+        print(str(data))
         try:
+            entry = input("What's your guess?")
+            if entry == "{quit}" or entry == "":
+                print("Exiting game...")
+                s.close()
+                return False
             s.sendall(entry.encode(encoding))
-            data = s.recv(1024)
         except socket.error as err:
             print("Connection lost:", err)
             return False
-        if len(data) == 0:
-            print("Sorry, connection to the server has been lost. Exiting game...")
-            return False
-        else:
-            data = data.decode(encoding)
-            print(str(data))
-            return True
+        return True
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

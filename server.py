@@ -20,6 +20,7 @@ WORD_LIST = [
 result = []
 word = WORD_LIST[1]
 
+
 def letter_guess(guess,display):
     for i in range(0, len(display)):
         if guess == word[i]:
@@ -35,7 +36,7 @@ def word_guess(guess, display):
         else:
             break
     if i == len(word):
-        print("You guessed correct!")
+        print("They got it!")
         return word
     else:
         return display
@@ -43,6 +44,7 @@ def word_guess(guess, display):
 
 def send_msg(msg, conn):
     conn.sendall(msg.encode(encoding))
+
 
 def play_hangman(display):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -61,24 +63,24 @@ def play_hangman(display):
                 send_msg("Let's play Hangman!\n", conn)
                 for c in word:
                     display.append("_")
+                print("The word is:", word)
                 guesses = []
-                # select word and send blanks
                 while "_" in display:
                     remaining = str(display) + "\n"
-                    conn.sendall(remaining.encode(encoding))
-                    #msg = "What is your guess: \n"
-                    #conn.sendall(msg.encode(encoding))
+                    print("Guesses used: " + str(len(guesses)))
+                    send_msg(remaining, conn)
                     data = conn.recv(1024)
                     if not data:
                         break
                     guess = data.decode(encoding)
+                    print("This guess:", guess)
                     if 1 < len(guess) <= len(word):
                         guesses.append(guess)
                         display = word_guess(guess, display)
                     else:
                         guesses.append(guess)
                         letter_guess(guess, display)
-                send_msg("You got it!\n", conn)
+                send_msg("\nYou got it!\nThe word was '" + word + "'\n", conn)
                 s.close()
 
 
