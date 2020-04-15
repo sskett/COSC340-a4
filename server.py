@@ -2,6 +2,7 @@
 
 import sys
 import socket
+import random
 
 
 HOST = 'localhost'
@@ -18,31 +19,45 @@ WORD_LIST = [
 ]
 
 result = []
-word = WORD_LIST[1]
+word = WORD_LIST[random.randrange(0, len(WORD_LIST))]
+guesses = []
+word_guesses = []
+char_count = 0
+word_count = 0
 
 
 def letter_guess(guess,display):
-    for i in range(0, len(display)):
-        if guess == word[i]:
-            display[i] = guess
-            print(display)
+    global char_count
+    char_count += 1
+    if guess in guesses:
+        return
+    else:
+        guesses.append(guess)
+        for i in range(0, len(display)):
+            if guess == word[i]:
+                display[i] = guess
 
 
 def word_guess(guess, display):
-    i = 0
-    for c in guess:
-        if c == word[i]:
-            i += 1
-        else:
-            break
-    if i == len(word):
-        print("They got it!")
-        return word
-    else:
+    global word_count
+    word_count += 1
+    if guess in word_guesses:
         return display
+    else:
+        i = 0
+        for c in guess:
+            if c == word[i]:
+                i += 1
+            else:
+                break
+        if i == len(word):
+            return word
+        else:
+            return display
 
 
 def send_msg(msg, conn):
+    msg = msg + "\n"
     conn.sendall(msg.encode(encoding))
 
 
@@ -52,36 +67,33 @@ def play_hangman(display):
         s.listen(MAX_CONNS)
         conn, addr = s.accept()
         with conn:
-            print('Connected by', addr)
             data = conn.recv(1024)
             if not data.decode(encoding) == 'START GAME':
-                send_msg("Invalid start request. Disconnecting...\n", conn)
-                conn.sendall(msg.encode(encoding))
+                send_msg("Invalid start request. Disconnecting...", conn)
                 s.close()
             else:
-                print("Starting game")
-                send_msg("Let's play Hangman!\n", conn)
+                print("Starting game on port", PORT)
+                send_msg("Let's play Hangman!", conn)
                 for c in word:
                     display.append("_")
                 print("The word is:", word)
-                guesses = []
                 while "_" in display:
-                    remaining = str(display) + "\n"
-                    print("Guesses used: " + str(len(guesses)))
-                    send_msg(remaining, conn)
+                    send_msg(str(display), conn)
                     data = conn.recv(1024)
                     if not data:
                         break
                     guess = data.decode(encoding)
-                    print("This guess:", guess)
                     if 1 < len(guess) <= len(word):
-                        guesses.append(guess)
                         display = word_guess(guess, display)
                     else:
-                        guesses.append(guess)
                         letter_guess(guess, display)
-                send_msg("\nYou got it!\nThe word was '" + word + "'\n", conn)
-                s.close()
+                send_msg("You got it!\nThe word was " + word, conn)
+                score = 10 * len(word) - 2 * char_count - word_count
+                send_msg("Your score is: " + str(score), conn)
+                send_msg("GAME OVER", conn)
+                print("Game ended.\n")
+                s.shutdown(socket.SHUT_RDWR)
+        s.close()
 
 
 

@@ -36,13 +36,14 @@ def manage_input(s):
         print("Sorry, connection to the server has been lost. Exiting game...")
         return False
     elif "You got it!" in data:
-        print(data)
+        print(s.recv(1024).decode(encoding))
+        print(s.recv(1024).decode(encoding))
         s.close()
         return False
     else:
         print(str(data))
         try:
-            entry = input("What's your guess?")
+            entry = input("What's your guess?\n")
             if entry == "{quit}" or entry == "":
                 print("Exiting game...")
                 s.close()
