@@ -10,20 +10,25 @@ PORT = int(sys.argv[1])
 MAX_CONNS = 1
 encoding = 'ascii'
 
-WORD_LIST = [
-    "apple",
-    "hello",
-    "laminate",
-    "sorceror",
-    "willow"
-]
-
 result = []
-word = WORD_LIST[random.randrange(0, len(WORD_LIST))]
+
 guesses = []
 word_guesses = []
 char_count = 0
 word_count = 0
+
+
+def create_word_list(filename):
+    file = open(filename, "r")
+    word_list = file.read().splitlines()
+    file.close()
+    return word_list[random.randrange(0, len(word_list))
+    ]
+
+
+def close_conn(s):
+    s.shutdown(socket.SHUT_RDWR)
+    s.close()
 
 
 def letter_guess(guess,display):
@@ -63,6 +68,7 @@ def send_msg(msg, conn):
 
 def play_hangman(display):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, PORT))
         s.listen(MAX_CONNS)
         conn, addr = s.accept()
@@ -70,7 +76,7 @@ def play_hangman(display):
             data = conn.recv(1024)
             if not data.decode(encoding) == 'START GAME':
                 send_msg("Invalid start request. Disconnecting...", conn)
-                s.close()
+                close_conn(s)
             else:
                 print("Starting game on port", PORT)
                 send_msg("Let's play Hangman!", conn)
@@ -92,33 +98,12 @@ def play_hangman(display):
                 send_msg("Your score is: " + str(score), conn)
                 send_msg("GAME OVER", conn)
                 print("Game ended.\n")
-                s.shutdown(socket.SHUT_RDWR)
-        s.close()
+        close_conn(s)
 
-
-
-
-
-"""
-
-
-
-    guess = input("What is your guess: ")
-    if (len(guess) > 1 and len(guess) <= len(word)):
-        guesses.append(guess)
-        display = word_guess(guess)
-    else:
-        guesses.append(guess)
-        letter_guess(guess)
-
-
-print("You got it!\n")
-print("Your guesses were:\n")
-print(guesses)
-"""
 
 if __name__ == "__main__":
     try:
+        word = create_word_list("wordList.txt")
         play_hangman(result)
     except socket.error as err:
         print("Unable to create the socket on " + str(HOST) + ":" + str(PORT) + "\n" + str(err))
