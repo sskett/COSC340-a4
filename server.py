@@ -66,6 +66,13 @@ def send_msg(msg, conn):
     conn.sendall(msg.encode(encoding))
 
 
+def arr_to_str(arr):
+    to_string = ""
+    for c in arr:
+        to_string += c
+    return to_string
+
+
 def play_hangman(display):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -78,18 +85,18 @@ def play_hangman(display):
                 send_msg("Invalid start request. Disconnecting...", conn)
                 close_conn(s)
             else:
-                print("Starting game on port", PORT)
+                print("Starting game. Connected with:", addr)
                 send_msg("Let's play Hangman!", conn)
                 for c in word:
                     display.append("_")
                 print("The word is:", word)
                 while "_" in display:
-                    send_msg(str(display), conn)
+                    send_msg(arr_to_str(display), conn)
                     data = conn.recv(1024)
                     if not data:
                         break
                     guess = data.decode(encoding)
-                    if 1 < len(guess) <= len(word):
+                    if len(guess) > 1:
                         display = word_guess(guess, display)
                     else:
                         letter_guess(guess, display)
