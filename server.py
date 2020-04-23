@@ -62,6 +62,7 @@ def word_guess(guess, display):
 
 
 def send_msg(msg, conn):
+    # TODO: Need to incorporate fixed length msg to prevent "GAME OVER" being sent with score
     msg = msg + "\n"
     conn.sendall(msg.encode(encoding))
 
@@ -82,11 +83,9 @@ def play_hangman(display):
         with conn:
             data = conn.recv(1024)
             if not data.decode(encoding) == 'START GAME':
-                send_msg("Invalid start request. Disconnecting...", conn)
                 close_conn(s)
             else:
                 print("Starting game. Connected with:", addr)
-                send_msg("Let's play Hangman!", conn)
                 for c in word:
                     display.append("_")
                 print("The word is:", word)
@@ -100,17 +99,16 @@ def play_hangman(display):
                         display = word_guess(guess, display)
                     else:
                         letter_guess(guess, display)
-                send_msg("You got it!\nThe word was " + word, conn)
                 score = 10 * len(word) - 2 * char_count - word_count
-                send_msg("Your score is: " + str(score), conn)
-                send_msg("GAME OVER", conn)
+                send_msg(str(score), conn)
+                #send_msg("GAME OVER", conn)
                 print("Game ended.\n")
         close_conn(s)
 
 
 if __name__ == "__main__":
+    word = create_word_list("wordList.txt")
     try:
-        word = create_word_list("wordList.txt")
         play_hangman(result)
     except socket.error as err:
         print("Unable to create the socket on " + str(HOST) + ":" + str(PORT) + "\n" + str(err))
