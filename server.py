@@ -6,7 +6,8 @@ import socket
 import random
 
 # Set up required variables
-HOST = 'localhost'
+HOST = socket.gethostname()
+print("Name of host is:", HOST)
 PORT = int(sys.argv[1])
 MAX_CONNS = 1
 MSGLEN = 2048
@@ -124,12 +125,7 @@ def run_game(conn, display):
     """
     while "_" in display:
         send_msg(arr_to_str(display), conn)
-        #try:
         data = conn.recv(MSGLEN)
-        #except socket.error as err:
-         #   print("Connection from user lost.\n", err)
-          #  close_conn(conn)
-           # break
         guess = data.decode(encoding)
         if len(guess) > 1:
             display = word_guess(guess, display)
@@ -173,6 +169,7 @@ def play_hangman(s):
 if __name__ == "__main__":
     while True:
         s = create_socket()
+        print("\nWaiting for game request...")
         word = create_word_list("wordList.txt")
         guesses, word_guesses = [], []
         char_guesses_count, word_guesses_count = 0, 0

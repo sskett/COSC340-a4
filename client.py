@@ -20,11 +20,11 @@ def close_conn(s):
     try:
         s.shutdown(socket.SHUT_RDWR)
     except socket.error as shutdown_err:
-        print("Error shutting down socket", shutdown_err)
+        print("Error shutting down socket.\n", shutdown_err)
     try:
         s.close()
     except socket.error as close_err:
-        print("Error closing socket", close_err)
+        print("Error closing socket.\n", close_err)
 
 
 def start_game(s):
@@ -34,12 +34,16 @@ def start_game(s):
     """
     try:
         s.connect((HOST, PORT))
+    except socket.error as conn_err:
+        print("Error connecting to server.\n", conn_err)
+        return False
+    try:
         s.sendall("START GAME".encode(encoding))
-        return True
-    except socket.error as err:
-        print(err)
+    except socket.error as send_err:
+        print("Error communicating with server. Exiting game.\n", send_err)
         close_conn(s)
         return False
+    return True
 
 
 def check_gameover(string):
@@ -66,7 +70,7 @@ def take_user_input(s):
         else:
             print("Please enter only letters in range a-z\n")
     if entry == "{quit}" or entry == "":
-        print("Exiting game...")
+        print("Exiting game...\n")
         close_conn(s)
         return False
     return entry
@@ -114,12 +118,14 @@ def process_guess(s):
     s -- a socket connection to a game server
     """
     data = receive_msg(s)
-    if len(data) == 0:
-        print("Sorry, connection to the server has been lost. Exiting game...")
+    if not data:
+        return False
+    elif len(data) == 0:
+        print("No response from the server. Exiting game...\n")
         s.close()
         return False
     elif data[0].isupper():
-        print("Server response error. Disconnecting.")
+        print("Server response error. Disconnecting.\n")
         close_conn(s)
         return False
     elif check_gameover(data):
