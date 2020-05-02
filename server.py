@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+"""
+This is the single player server for the word guessing game required for COSC340 Assignment 2. The server will accept
+a connection and communicate with a single player via a TCP socket.
+
+CLI Arguments:
+    1 - communication port
+"""
+
 # Import dependencies
 import sys
 import socket
@@ -8,10 +16,14 @@ import random
 # Set up required variables
 HOST = socket.gethostname()
 print("Name of host is:", HOST)
-PORT = int(sys.argv[1])
-MAX_CONNS = 1
-MSGLEN = 2048
-encoding = 'ascii'
+try:
+    PORT = int(sys.argv[1])
+except IndexError:
+    print("Failed to initiate server. No port number provided.")
+    sys.exit(1)
+MAX_CONNS = 1           # this is a single player server
+MSGLEN = 1024           # maximum size of any single message
+encoding = 'ascii'      # the encoding for strings (as messages are sent and received in byte-form)
 
 
 def create_socket():
@@ -30,11 +42,21 @@ def create_word_list(filename):
     Keyword arguments:
     filename -- a text file containing one word per line (a-z chars only)
     """
-    file = open(filename, "r")
-    word_list = file.read().splitlines()
-    file.close()
-    return word_list[random.randrange(0, len(word_list))
-    ]
+    try:
+        file = open(filename, "r")
+        word_list = file.read().splitlines()
+        file.close()
+    except FileNotFoundError as err:
+        print("Fatal error opening game dictionary:", err)
+        sys.exit(1)
+    for w in word_list:
+        if not w.isalpha():
+            word_list.remove(w)
+    if len(word_list) < 1:
+        print("No valid words found\n")
+        sys.exit(1)
+    else:
+        return word_list[random.randrange(0, len(word_list))].lower()
 
 
 def close_conn(s):
@@ -116,6 +138,36 @@ def setup_game(addr, display):
     print("The word is:", word)
 
 
+def recv_valid_msg(conn, msglen):
+    """Receives a user input message and check that it is valid, ie only contains characters from a-z and is only
+    one line. If an invalid message is detected the user is disconnected.
+    Keyword arguments:
+    conn - a socket connection to the user
+    msglen - the maximum message length for the connection
+    """
+    try:
+        data = conn.recv(msglen)
+    except socket.error as err:
+        print("Error receiving message:", err)
+        close_conn(conn)
+    if not data or len(data) == 0:
+        return ""
+
+    msg = data.decode(encoding)
+    if len(msg.splitlines()) > 1 or not msg.isalpha() or contains_upper(msg):
+        print("Invalid user input. Game terminated.")
+        close_conn(conn)
+    else:
+        return msg
+
+
+def contains_upper(string):
+    """Checks if there are any uppercase characters in the string."""
+    for c in string:
+        if c.isupper():
+            return True
+
+
 def run_game(conn, display):
     """Outputs the current display word to the player with unknown letters shown as '_'.
      Loops until the player guesses the word or has guessed every letter.
@@ -125,9 +177,10 @@ def run_game(conn, display):
     """
     while "_" in display:
         send_msg(arr_to_str(display), conn)
-        data = conn.recv(MSGLEN)
-        guess = data.decode(encoding)
-        if len(guess) > 1:
+        guess = recv_valid_msg(conn, MSGLEN)
+        if len(guess) == 0:
+            break
+        elif len(guess) > 1:
             display = word_guess(guess, display)
         else:
             letter_guess(guess, display)
