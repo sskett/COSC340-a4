@@ -10,8 +10,9 @@
 - wordList.txt
 
 ####Server instructions
-The startServer.sh, server.py and wordList.txt files should be in a common directory.
-The game server can be started by running ./startServer.sh [PORT] in the terminal.
+**The startServer.sh, server.py and wordList.txt files should be in a common directory.**
+
+The game server is started by running "./startServer.sh [PORT]" in the terminal.
 
 The server will run until it is force terminated by a system exit (generally a keyboard interrupt, CTRL+C, by the user)
 or a fatal program error.
@@ -20,8 +21,9 @@ Data and communication errors will disconnect the current user and leave the ser
 a new game.
 
 ####Client instructions
-The startClient.sh and client.py files must be in the same directory.
-The game can be started by running ./startClient.sg [HOST] [PORT] in the terminal.
+**The startClient.sh and client.py files must be in the same directory.**
+
+The game is started by running "./startClient.sh [HOST] [PORT]" in the terminal.
 
 The game will exit back to the terminal if any errors occur. The user can voluntarily leave the game by pressing CTRL+C.
 

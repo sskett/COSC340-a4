@@ -5,4 +5,4 @@
 ## A networked word guessing game
 
 # Starts the game server using the port specified by the first additional argument
-./server.py $1
+python3 server.py $1
