@@ -9,9 +9,8 @@ CLI Arguments:
 """
 
 # Import dependencies
-import sys
-import socket
-import random
+import sys, socket, random, ssl
+
 
 # Set up required variables
 HOST = socket.gethostname()
@@ -21,6 +20,7 @@ try:
 except IndexError:
     print("Failed to initiate server. No port number provided.")
     sys.exit(1)
+CERT = 'cert.pem'
 MAX_CONNS = 1           # this is a single player server
 MSGLEN = 1024           # maximum size of any single message
 encoding = 'ascii'      # the encoding for strings (as messages are sent and received in byte-form)
@@ -32,7 +32,11 @@ def create_socket():
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((HOST, PORT))
     s.listen(MAX_CONNS)
-    return s
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certfile="cert.pem")
+    context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+    context.set_ciphers('EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH') #TODO: Check for correct ciphers
+    return s, context
 
 
 def create_word_list(filename):
@@ -196,38 +200,43 @@ def end_game(conn):
     print("Game ended.\n")
 
 
-def play_hangman(s):
+def play_hangman(s, c):
     """Creates a socket for a single-user and manages the game state.
     Keyword arguments:
     s -- a server socket which will connect to a player
     """
-    conn, addr = s.accept()
-    with conn:
-        letters = []
-        data = conn.recv(MSGLEN)
-        if not data.decode(encoding) == 'START GAME':
-            close_conn(s)
-        else:
-            setup_game(addr, letters)
-            try:
-                run_game(conn, letters)
-                end_game(conn)
-            except socket.error as err:
-                print("Connection to user lost.\n", err)
+    ssock, addr = s.accept()
+    try:
+        conn = c.wrap_socket(ssock, server_side=True)
+        with conn:
+            letters = []
+            data = conn.recv(MSGLEN)
+            if not data.decode(encoding) == 'START GAME':
                 close_conn(s)
-                return
-    close_conn(s)
+            else:
+                setup_game(addr, letters)
+                try:
+                    run_game(conn, letters)
+                    end_game(conn)
+                except socket.error as err:
+                    print("Connection to user lost.\n", err)
+                    close_conn(s)
+                    return
+    except ssl.SSLError as err:
+        print(err)
+    finally:
+        close_conn(s)
 
 
 if __name__ == "__main__":
     while True:
-        s = create_socket()
+        s, c = create_socket()
         print("\nWaiting for game request...")
         word = create_word_list("wordList.txt")
         guesses, word_guesses = [], []
         char_guesses_count, word_guesses_count = 0, 0
         try:
-            play_hangman(s)
+            play_hangman(s, c)
         except socket.error as err:
             print("Unable to create the socket on " + str(HOST) + ":" + str(PORT) + "\n" + str(err))
         except KeyboardInterrupt:

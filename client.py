@@ -9,8 +9,7 @@ CLI Arguments:
 """
 
 # Import dependencies
-import sys
-import socket
+import sys, socket, ssl
 
 # Set up required variables
 try:
@@ -155,9 +154,18 @@ def process_guess(s):
 
 
 if __name__ == "__main__":
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        active = start_game(s)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile="cert.pem")
+    context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+    conn = context.wrap_socket(sock, server_hostname=HOST)
+    try:
+        conn.connect((HOST, PORT))
+        active = start_game(conn)
         while active:
-            active = process_guess(s)
+            active = process_guess(conn)
+    except socket.error as err:
+        print(err)
+    finally:
+        conn.close()
 
 
