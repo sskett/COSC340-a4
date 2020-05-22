@@ -22,6 +22,11 @@ MSGLEN = 1024        # the maximum size of any individual message
 encoding = 'ascii'   # the encoding to be used for strings (as messages are sent and received in byte-form)
 active = False       # a flag indicating game state
 
+server_hostname = 'cosc340GameServer'
+server_certfile = 'server.crt'
+client_certfile = 'client.crt'
+client_keyfile = 'client.key'
+
 
 def close_conn(s):
     """Properly closes the socket connection.
@@ -154,12 +159,14 @@ def process_guess(s):
 
 
 if __name__ == "__main__":
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile="cert.pem")
+
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=server_certfile)
+    context.load_cert_chain(certfile=client_certfile, keyfile=client_keyfile)
     context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-    conn = context.wrap_socket(sock, server_hostname=HOST)
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn = context.wrap_socket(s, server_side=False, server_hostname=server_hostname)
     try:
-        conn.connect((HOST, PORT))
         active = start_game(conn)
         while active:
             active = process_guess(conn)

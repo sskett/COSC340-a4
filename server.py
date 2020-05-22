@@ -13,29 +13,35 @@ import sys, socket, random, ssl
 
 
 # Set up required variables
-HOST = socket.gethostname()
+HOST = ''
 print("Name of host is:", HOST)
 try:
     PORT = int(sys.argv[1])
 except IndexError:
     print("Failed to initiate server. No port number provided.")
     sys.exit(1)
-CERT = 'cert.pem'
+
 MAX_CONNS = 1           # this is a single player server
 MSGLEN = 1024           # maximum size of any single message
 encoding = 'ascii'      # the encoding for strings (as messages are sent and received in byte-form)
-
+server_certfile = 'server.crt'
+server_keyfile = 'server.key'
+client_certfiles = 'client.crt'
 
 def create_socket():
     """Creates and configures a socket for use by the game server."""
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.load_cert_chain(certfile=server_certfile, keyfile=server_keyfile)
+    context.load_verify_locations(cafile=client_certfiles)
+    context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+    #context.set_ciphers('EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH') #TODO: Check for correct ciphers
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((HOST, PORT))
     s.listen(MAX_CONNS)
-    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    context.load_cert_chain(certfile="cert.pem")
-    context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-    context.set_ciphers('EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH') #TODO: Check for correct ciphers
+
     return s, context
 
 
