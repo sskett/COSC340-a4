@@ -38,3 +38,15 @@ Once the final letter is guessed, or the whole word is guessed correctly, the ga
 Scoring is based on the length of the word and how many guesses you took to solve it. You will score higher if you use
 word guesses rather than guessing every letter.
 
+#####SSL 
+SSL connection method based on:
+ 
+* https://www.electricmonk.nl/log/2018/06/02/ssl-tls-client-certificate-verification-with-python-v3-4-sslcontext/
+
+* https://docs.python.org/3/library/ssl.html
+
+* https://markusholtermann.eu/2016/09/ssl-all-the-things-in-python/
+
+Regenerating keys (not implemented)
+* https://medium.com/@md.julfikar.mahmud/secure-socket-programming-in-python-d37b93233c69
+
