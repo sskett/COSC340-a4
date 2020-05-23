@@ -50,3 +50,6 @@ SSL connection method based on:
 Regenerating keys (not implemented)
 * https://medium.com/@md.julfikar.mahmud/secure-socket-programming-in-python-d37b93233c69
 
+AES encryption:
+
+* https://stackoverflow.com/questions/27287306/sending-encrypted-strings-using-socket-in-python

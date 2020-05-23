@@ -10,11 +10,12 @@ CLI Arguments:
 
 # Import dependencies
 import sys, socket, random, ssl
+from Crypto.Cipher import AES
+from Crypto import Random
 
 
 # Set up required variables
 HOST = ''
-print("Name of host is:", HOST)
 try:
     PORT = int(sys.argv[1])
 except IndexError:
@@ -27,6 +28,8 @@ encoding = 'ascii'      # the encoding for strings (as messages are sent and rec
 server_certfile = 'server.crt'
 server_keyfile = 'server.key'
 client_certfiles = 'client.crt'
+
+
 
 def create_socket():
     """Creates and configures a socket for use by the game server."""
@@ -109,14 +112,36 @@ def word_guess(guess, display):
         return display
 
 
+blocksize = 16
+key = 'This is a key123'
+iv = 'This is an IV456'
+
+
+def encrypt(msg):
+    while len(msg) % blocksize != 0:
+        msg = msg + "^"
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    ciphertext = cipher.encrypt(msg)
+    return ciphertext
+
+
+def decrypt(msg):
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    plaintext = (cipher.decrypt(msg)).decode(encoding)
+    if plaintext.endswith('^'):
+        while plaintext.endswith('^'):
+            plaintext = plaintext[:-1]
+    return plaintext
+
+
 def send_msg(msg, conn):
     """Appends a newline to the base message string and sends the message using ASCII encoding.
     Keyword arguments:
     msg -- a string that is to be sent to the connected user
     conn -- a socket connection
     """
-    msg = msg + "\n"
-    conn.sendall(msg.encode(encoding))
+    msg = encrypt(msg + "\n")
+    conn.sendall(msg)
 
 
 def arr_to_str(arr):
@@ -156,14 +181,14 @@ def recv_valid_msg(conn, msglen):
     msglen - the maximum message length for the connection
     """
     try:
-        data = conn.recv(msglen)
+        data = decrypt(conn.recv(msglen))
     except socket.error as err:
         print("Error receiving message:", err)
         close_conn(conn)
     if not data or len(data) == 0:
         return ""
 
-    msg = data.decode(encoding)
+    msg = data
     if len(msg.splitlines()) > 1 or not msg.isalpha() or contains_upper(msg):
         print("Invalid user input. Game terminated.")
         close_conn(conn)
@@ -217,7 +242,7 @@ def play_hangman(s, c):
         with conn:
             letters = []
             data = conn.recv(MSGLEN)
-            if not data.decode(encoding) == 'START GAME':
+            if not decrypt(data) == 'START GAME':
                 close_conn(s)
             else:
                 setup_game(addr, letters)

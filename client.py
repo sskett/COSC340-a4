@@ -10,6 +10,9 @@ CLI Arguments:
 
 # Import dependencies
 import sys, socket, ssl
+from Crypto.Cipher import AES
+from Crypto.Util import Counter
+from Crypto import Random
 
 # Set up required variables
 try:
@@ -54,7 +57,7 @@ def start_game(s):
         print("Error connecting to server.\n", conn_err)
         return False
     try:
-        s.sendall("START GAME".encode(encoding))
+        s.sendall(encrypt("START GAME"))
     except socket.error as send_err:
         print("Error communicating with server. Exiting game.\n", send_err)
         close_conn(s)
@@ -93,6 +96,28 @@ def take_user_input(s):
     return entry
 
 
+blocksize = 16
+key = 'This is a key123'
+iv = 'This is an IV456'
+
+
+def encrypt(msg):
+    while len(msg) % blocksize != 0:
+        msg = msg + "^"
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    ciphertext = cipher.encrypt(msg)
+    return ciphertext
+
+
+def decrypt(msg):
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    plaintext = (cipher.decrypt(msg)).decode(encoding)
+    if plaintext.endswith('^'):
+        while plaintext.endswith('^'):
+            plaintext = plaintext[:-1]
+    return plaintext
+
+
 def send_guess(s):
     """Takes a char string input by the user, converts it into an ASCII encoded byte-form and sends to
     the game server.
@@ -103,7 +128,7 @@ def send_guess(s):
         entry = take_user_input(s)
         if not entry:
             return False
-        s.sendall(entry.lower().encode(encoding))
+        s.sendall(encrypt(entry.lower()))
     except socket.error as err:
         print("Connection lost:", err)
         s.close()
@@ -124,7 +149,7 @@ def receive_msg(s):
     s -- a socket connection to the game server
     """
     try:
-        data = (s.recv(MSGLEN)).decode(encoding)
+        data = decrypt(s.recv(MSGLEN))
         return data
     except socket.error as err:
         print("Server communication error.\n", err)
