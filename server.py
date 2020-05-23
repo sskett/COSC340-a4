@@ -30,7 +30,6 @@ server_keyfile = 'server.key'
 client_certfiles = 'client.crt'
 
 
-
 def create_socket():
     """Creates and configures a socket for use by the game server."""
     context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -38,7 +37,6 @@ def create_socket():
     context.load_cert_chain(certfile=server_certfile, keyfile=server_keyfile)
     context.load_verify_locations(cafile=client_certfiles)
     context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-    #context.set_ciphers('EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH') #TODO: Check for correct ciphers
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -113,24 +111,26 @@ def word_guess(guess, display):
 
 
 blocksize = 16
-key = 'This is a key123'
 iv = 'This is an IV456'
 
 
 def encrypt(msg):
     while len(msg) % blocksize != 0:
         msg = msg + "^"
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    ciphertext = cipher.encrypt(msg)
+    iv = Random.new().read(16)
+    cipher = AES.new(game_key, AES.MODE_CBC, iv)
+    ciphertext = iv + cipher.encrypt(msg)
     return ciphertext
 
 
 def decrypt(msg):
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    plaintext = (cipher.decrypt(msg)).decode(encoding)
+    iv = msg[:16]
+    cipher = AES.new(game_key, AES.MODE_CBC, iv)
+    plaintext = (cipher.decrypt(msg[16:])).decode(encoding)
     if plaintext.endswith('^'):
         while plaintext.endswith('^'):
             plaintext = plaintext[:-1]
+    print("Decrypted: " + str(msg) + " to " + plaintext + "\n")
     return plaintext
 
 
@@ -242,9 +242,11 @@ def play_hangman(s, c):
         with conn:
             letters = []
             data = conn.recv(MSGLEN)
-            if not decrypt(data) == 'START GAME':
+            if not data[:10].decode(encoding) == 'START GAME':
                 close_conn(s)
             else:
+                global game_key
+                game_key = data[10:]
                 setup_game(addr, letters)
                 try:
                     run_game(conn, letters)
@@ -253,8 +255,11 @@ def play_hangman(s, c):
                     print("Connection to user lost.\n", err)
                     close_conn(s)
                     return
-    except ssl.SSLError as err:
-        print(err)
+                except KeyboardInterrupt:
+                    print("\nGame instance terminated by user.")
+                    close_conn(s)
+    except ssl.SSLError as ssl_err:
+        print(ssl_err)
     finally:
         close_conn(s)
 

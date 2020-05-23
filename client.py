@@ -21,14 +21,16 @@ try:
 except IndexError as err:
     print("Failed to run game client. Insufficient arguments - please provide valid hostname and port number.")
     sys.exit(1)
-MSGLEN = 1024        # the maximum size of any individual message
-encoding = 'ascii'   # the encoding to be used for strings (as messages are sent and received in byte-form)
-active = False       # a flag indicating game state
+MSGLEN = 1024  # the maximum size of any individual message
+encoding = 'ascii'  # the encoding to be used for strings (as messages are sent and received in byte-form)
+active = False  # a flag indicating game state
 
 server_hostname = 'cosc340GameServer'
 server_certfile = 'server.crt'
 client_certfile = 'client.crt'
 client_keyfile = 'client.key'
+
+session_key = Random.new().read(32)
 
 
 def close_conn(s):
@@ -57,7 +59,7 @@ def start_game(s):
         print("Error connecting to server.\n", conn_err)
         return False
     try:
-        s.sendall(encrypt("START GAME"))
+        s.sendall("START GAME".encode(encoding) + session_key)
     except socket.error as send_err:
         print("Error communicating with server. Exiting game.\n", send_err)
         close_conn(s)
@@ -86,7 +88,7 @@ def take_user_input(s):
         while True:
             entry = input("What's your guess?\n")
             if entry.isalpha():
-               break
+                break
             else:
                 print("Please enter only letters in range a-z\n")
     except KeyboardInterrupt as user_err:
@@ -97,21 +99,21 @@ def take_user_input(s):
 
 
 blocksize = 16
-key = 'This is a key123'
-iv = 'This is an IV456'
 
 
 def encrypt(msg):
     while len(msg) % blocksize != 0:
         msg = msg + "^"
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    ciphertext = cipher.encrypt(msg)
+    iv = Random.new().read(16)
+    cipher = AES.new(session_key, AES.MODE_CBC, iv)
+    ciphertext = iv + cipher.encrypt(msg)
     return ciphertext
 
 
 def decrypt(msg):
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    plaintext = (cipher.decrypt(msg)).decode(encoding)
+    iv = msg[:16]
+    cipher = AES.new(session_key, AES.MODE_CBC, iv)
+    plaintext = (cipher.decrypt(msg[16:])).decode(encoding)
     if plaintext.endswith('^'):
         while plaintext.endswith('^'):
             plaintext = plaintext[:-1]
@@ -199,5 +201,3 @@ if __name__ == "__main__":
         print(err)
     finally:
         conn.close()
-
-
