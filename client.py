@@ -9,9 +9,10 @@ CLI Arguments:
 """
 
 # Import dependencies
-import sys, socket, ssl, hmac, hashlib
-from Crypto.Cipher import AES
+import sys, socket, ssl, hashlib
 from Crypto import Random
+from game_sec import encrypt16
+from game_sec import decrypt16
 
 
 # Set up required variables
@@ -25,15 +26,15 @@ MSGLEN = 1024  # the maximum size of any individual message
 encoding = 'ascii'  # the encoding to be used for strings (as messages are sent and received in byte-form)
 active = False  # a flag indicating game state
 
+# Details required for establishing a secure connection. Note: Self-signed certificates are used
+# in lieu of a third party certification authority (CA)
 server_hostname = 'cosc340GameServer'
 server_certfile = 'server.crt'
 client_certfile = 'client.crt'
 client_keyfile = 'client.key'
 
-blocksize = 16
+# A randomised key used for encryption of messages
 session_key = Random.new().read(32)
-hkey = Random.new().read(16)
-
 
 
 def close_conn(s):
@@ -103,36 +104,6 @@ def take_user_input(s):
     return entry
 
 
-def encrypt16(msg, key):
-    hmsg = msg
-    while len(msg) % 16 != 0:
-        msg = msg + "^"
-    iv = Random.new().read(16)
-    hsig = hmac_signature(hmsg.encode(encoding), iv)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    ciphertext = iv + hsig + cipher.encrypt(msg)
-    return ciphertext
-
-
-def decrypt16(msg, key):
-    iv = msg[:16]
-    signature = msg[16:80].decode(encoding)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    plaintext = cipher.decrypt(msg[80:]).decode(encoding)
-    if plaintext.endswith('^'):
-        while plaintext.endswith('^'):
-            plaintext = plaintext[:-1]
-    h = hmac_signature(plaintext.encode(encoding), iv).decode(encoding)
-    if not h == signature:
-        print('HMAC failure') #TODO: raise an exception to exit the game
-    return plaintext
-
-
-def hmac_signature(msg, key):
-    h = hmac.new(key, msg, hashlib.sha3_256)
-    return h.hexdigest().encode(encoding)
-
-
 def send_guess(s):
     """Takes a char string input by the user, converts it into an ASCII encoded byte-form and sends to
     the game server.
@@ -173,19 +144,29 @@ def receive_msg(s):
 
 
 def check_valid_game(word, key, hashval):
+    """Confirms that the word revealed at the end of the game is the same that the server initialised the game with.
+    Keyword arguments:
+    word -- the word as revealed at the end of the game
+    key -- the client provided key used for all encrypted messaging
+    hashval -- the hash provided by the server to represent the game word
+    """
     word_hash = hashlib.sha3_256(key + word.encode(encoding)).hexdigest()
-
     return word_hash == hashval
 
 
 def process_end_game(data, conn):
+    """Checks that the word revealed is the same as the game initiated with and either displays the player's score if so,
+    or an error message if not.
+    Keyword arguments:
+    data -- the end-game message grouping sent by the server
+    conn -- a socket connection to the game server
+    """
     msg = data.splitlines()
     if check_valid_game(msg[2], session_key, game_hash):
         print("Your score is:", msg[0])
         print(msg[1])
     else:
         print("Game invalid - server word hash doesn't match")
-
     close_conn(conn)
 
 
@@ -228,5 +209,7 @@ if __name__ == "__main__":
             active = process_guess(conn)
     except socket.error as err:
         print(err)
+    except ValueError as val_err:
+        print("Disconnected from server. Error in secure message.")
     finally:
         conn.close()

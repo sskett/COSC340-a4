@@ -9,9 +9,9 @@ CLI Arguments:
 """
 
 # Import dependencies
-import sys, socket, random, ssl, hmac, hashlib
-from Crypto.Cipher import AES
-from Crypto import Random
+import sys, socket, random, ssl, hashlib
+from game_sec import encrypt16
+from game_sec import decrypt16
 
 
 # Set up required variables
@@ -25,6 +25,9 @@ except IndexError:
 MAX_CONNS = 1           # this is a single player server
 MSGLEN = 1024           # maximum size of any single message
 encoding = 'ascii'      # the encoding for strings (as messages are sent and received in byte-form)
+
+# Details required for establishing a secure connection. Note: Self-signed certificates are used
+# in lieu of a third party certification authority (CA)
 server_certfile = 'server.crt'
 server_keyfile = 'server.key'
 client_certfiles = 'client.crt'
@@ -108,36 +111,6 @@ def word_guess(guess, display):
         return word
     else:
         return display
-
-
-def encrypt16(msg, key):
-    hmsg = msg
-    while len(msg) % 16 != 0:
-        msg = msg + "^"
-    iv = Random.new().read(16)
-    hsig = hmac_signature(hmsg.encode(encoding), iv)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    ciphertext = iv + hsig + cipher.encrypt(msg)
-    return ciphertext
-
-
-def decrypt16(msg, key):
-    iv = msg[:16]
-    signature = msg[16:80].decode(encoding)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    plaintext = (cipher.decrypt(msg[80:])).decode(encoding)
-    if plaintext.endswith('^'):
-        while plaintext.endswith('^'):
-            plaintext = plaintext[:-1]
-    h = hmac_signature(plaintext.encode(encoding), iv).decode(encoding)
-    if not h == signature:
-        print('HMAC failure') #TODO: raise an exception to exit the game
-    return plaintext
-
-
-def hmac_signature(msg, key):
-    h = hmac.new(key, msg, hashlib.sha3_256)
-    return h.hexdigest().encode(encoding)
 
 
 def send_msg(msg, conn):
@@ -235,7 +208,7 @@ def end_game(conn):
     conn -- a socket connection
     """
     send_msg(calc_score() + "\nGAME OVER\n" + word, conn)
-    int("Game ended.\n")
+    print("Game ended.\n")
 
 
 def play_hangman(s, c):
@@ -283,7 +256,9 @@ if __name__ == "__main__":
             play_hangman(s, c)
         except socket.error as err:
             print("Unable to create the socket on " + str(HOST) + ":" + str(PORT) + "\n" + str(err))
-        except KeyboardInterrupt:
+        except ValueError as val_err:
+            print("User disconnected. Error in user's secure message.")
+        except KeyboardInterrupt or SystemExit:
             print("\nServer process terminated by user.")
             close_conn(s)
             break
