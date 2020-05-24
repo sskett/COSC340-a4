@@ -257,7 +257,7 @@ if __name__ == "__main__":
         except socket.error as err:
             print("Unable to create the socket on " + str(HOST) + ":" + str(PORT) + "\n" + str(err))
         except ValueError as val_err:
-            print("User disconnected. Error in user's secure message.")
+            print("User disconnected.")
         except KeyboardInterrupt or SystemExit:
             print("\nServer process terminated by user.")
             close_conn(s)

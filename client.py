@@ -141,6 +141,9 @@ def receive_msg(s):
         print("Server communication error.\n", err)
         close_conn(s)
         return False
+    except ValueError:
+        print("Cannot confirm digital signature. Exiting game.")
+        close_conn(conn)
 
 
 def check_valid_game(word, key, hashval):

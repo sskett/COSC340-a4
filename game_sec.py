@@ -58,7 +58,8 @@ def decrypt16(msg, key, enc_type='ascii'):
     # Check the HMAC signature for the calculated plaintext matches the one received
     h = hmac_signature(plaintext.encode(enc_type), iv).decode(enc_type)
     if not h == signature:
-        print('HMAC failure') #TODO: raise an exception to exit the game
+        print('HMAC failure. Disconnecting from user.')
+        return ""
 
     return plaintext
 

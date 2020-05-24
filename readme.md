@@ -1,27 +1,36 @@
-#COSC340 (2020/T1) - Assignment 2
+#COSC340 (2020/T1) - Assignment 4
 ##Spencer Skett
 
 ####ZIP file contents
 - readme.md
+- protocol.pdf
+- report.pdf
 - startServer.sh
 - startClient.sh
 - server.py
 - client.py
+- game_sec.py
+- server.crt
+- server.key
+- client.crt
+- client.key
 - wordList.txt
 
 ####Server instructions
-**The startServer.sh, server.py and wordList.txt files should be in a common directory.**
+**The startServer.sh, server.py, game_sec.py, server.crt, server.key, client.crt and wordList.txt files must 
+be in a common directory.**
 
 The game server is started by running "./startServer.sh [PORT]" in the terminal.
 
 The server will run until it is force terminated by a system exit (generally a keyboard interrupt, CTRL+C, by the user)
-or a fatal program error.
+or a fatal program error. If a game is currently running the interrupt will exit the game and return to the listening
+state. A further interrupt is required to close the server.
 
 Data and communication errors will disconnect the current user and leave the server in a listening state ready to start 
 a new game.
 
 ####Client instructions
-**The startClient.sh and client.py files must be in the same directory.**
+**The startClient.sh, client.py, game_sec.py, server.crt, client.crt and client.key files must be in the same directory.**
 
 The game is started by running "./startClient.sh [HOST] [PORT]" in the terminal.
 
@@ -38,18 +47,10 @@ Once the final letter is guessed, or the whole word is guessed correctly, the ga
 Scoring is based on the length of the word and how many guesses you took to solve it. You will score higher if you use
 word guesses rather than guessing every letter.
 
-#####SSL 
-SSL connection method based on:
- 
-* https://www.electricmonk.nl/log/2018/06/02/ssl-tls-client-certificate-verification-with-python-v3-4-sslcontext/
+####Security
+The connection between server and client is negotiated over TLS using the included self-signed certificates.
 
-* https://docs.python.org/3/library/ssl.html
+All communications between server and client are sent using AES encryption. Each message is checked against a digital
+signature using a hash-based message authentication code (HMAC). The client performs a hash-value check on the game word
+to ensure the server has operated on the correct word. 
 
-* https://markusholtermann.eu/2016/09/ssl-all-the-things-in-python/
-
-Regenerating keys (not implemented)
-* https://medium.com/@md.julfikar.mahmud/secure-socket-programming-in-python-d37b93233c69
-
-AES encryption:
-
-* https://stackoverflow.com/questions/27287306/sending-encrypted-strings-using-socket-in-python
