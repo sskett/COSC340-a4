@@ -63,6 +63,8 @@ def start_game(s):
         return False
     try:
         s.sendall("START GAME".encode(encoding) + session_key)
+        global game_hash
+        game_hash = (receive_msg(s))[:-1]
     except socket.error as send_err:
         print("Error communicating with server. Exiting game.\n", send_err)
         close_conn(s)
@@ -101,7 +103,7 @@ def take_user_input(s):
     return entry
 
 
-def encrypt(msg, key):
+def encrypt16(msg, key):
     hmsg = msg
     while len(msg) % 16 != 0:
         msg = msg + "^"
@@ -141,7 +143,7 @@ def send_guess(s):
         entry = take_user_input(s)
         if not entry:
             return False
-        s.sendall(encrypt(entry.lower(), session_key))
+        s.sendall(encrypt16(entry.lower(), session_key))
     except socket.error as err:
         print("Connection lost:", err)
         s.close()
@@ -170,6 +172,23 @@ def receive_msg(s):
         return False
 
 
+def check_valid_game(word, key, hashval):
+    word_hash = hashlib.sha3_256(key + word.encode(encoding)).hexdigest()
+
+    return word_hash == hashval
+
+
+def process_end_game(data, conn):
+    msg = data.splitlines()
+    if check_valid_game(msg[2], session_key, game_hash):
+        print("Your score is:", msg[0])
+        print(msg[1])
+    else:
+        print("Game invalid - server word hash doesn't match")
+
+    close_conn(conn)
+
+
 def process_guess(s):
     """If there is still an active connection, receives and displays to the user a masked string
     representing the current state (ie known/unknown letters) of the game word, then responds to the
@@ -184,8 +203,7 @@ def process_guess(s):
         return False
     end_game = check_gameover(data)
     if end_game:
-        print("Your score is:", data)
-        close_conn(s)
+        process_end_game(data, s)
         return False
     elif not end_game and contains_upper(data):
         print("Invalid response from server. Terminating game.\n")

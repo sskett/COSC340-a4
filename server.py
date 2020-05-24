@@ -178,7 +178,7 @@ def setup_game(addr, display):
         display.append("_")
     print("The word is:", word)
     global game_hash
-    game_hash = hashlib.sha3_256(word.encode(encoding)).hexdigest()
+    game_hash = hashlib.sha3_256(game_key + word.encode(encoding)).hexdigest()
 
 
 def recv_valid_msg(conn, msglen):
@@ -234,9 +234,8 @@ def end_game(conn):
     Keyword arguments:
     conn -- a socket connection
     """
-    send_msg(calc_score(), conn)
-    send_msg("GAME OVER", conn)
-    print("Game ended.\n")
+    send_msg(calc_score() + "\nGAME OVER\n" + word, conn)
+    int("Game ended.\n")
 
 
 def play_hangman(s, c):
@@ -256,6 +255,7 @@ def play_hangman(s, c):
                 global game_key
                 game_key = data[10:]
                 setup_game(addr, letters)
+                send_msg(game_hash, conn)
                 try:
                     run_game(conn, letters)
                     end_game(conn)
