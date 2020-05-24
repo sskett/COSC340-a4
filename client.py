@@ -9,10 +9,10 @@ CLI Arguments:
 """
 
 # Import dependencies
-import sys, socket, ssl
+import sys, socket, ssl, hmac, hashlib
 from Crypto.Cipher import AES
-from Crypto.Util import Counter
 from Crypto import Random
+
 
 # Set up required variables
 try:
@@ -30,7 +30,10 @@ server_certfile = 'server.crt'
 client_certfile = 'client.crt'
 client_keyfile = 'client.key'
 
+blocksize = 16
 session_key = Random.new().read(32)
+hkey = Random.new().read(16)
+
 
 
 def close_conn(s):
@@ -98,26 +101,34 @@ def take_user_input(s):
     return entry
 
 
-blocksize = 16
-
-
-def encrypt(msg):
-    while len(msg) % blocksize != 0:
+def encrypt(msg, key):
+    hmsg = msg
+    while len(msg) % 16 != 0:
         msg = msg + "^"
     iv = Random.new().read(16)
-    cipher = AES.new(session_key, AES.MODE_CBC, iv)
-    ciphertext = iv + cipher.encrypt(msg)
+    hsig = hmac_signature(hmsg.encode(encoding), iv)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    ciphertext = iv + hsig + cipher.encrypt(msg)
     return ciphertext
 
 
-def decrypt(msg):
+def decrypt16(msg, key):
     iv = msg[:16]
-    cipher = AES.new(session_key, AES.MODE_CBC, iv)
-    plaintext = (cipher.decrypt(msg[16:])).decode(encoding)
+    signature = msg[16:80].decode(encoding)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    plaintext = cipher.decrypt(msg[80:]).decode(encoding)
     if plaintext.endswith('^'):
         while plaintext.endswith('^'):
             plaintext = plaintext[:-1]
+    h = hmac_signature(plaintext.encode(encoding), iv).decode(encoding)
+    if not h == signature:
+        print('HMAC failure') #TODO: raise an exception to exit the game
     return plaintext
+
+
+def hmac_signature(msg, key):
+    h = hmac.new(key, msg, hashlib.sha3_256)
+    return h.hexdigest().encode(encoding)
 
 
 def send_guess(s):
@@ -130,7 +141,7 @@ def send_guess(s):
         entry = take_user_input(s)
         if not entry:
             return False
-        s.sendall(encrypt(entry.lower()))
+        s.sendall(encrypt(entry.lower(), session_key))
     except socket.error as err:
         print("Connection lost:", err)
         s.close()
@@ -151,7 +162,7 @@ def receive_msg(s):
     s -- a socket connection to the game server
     """
     try:
-        data = decrypt(s.recv(MSGLEN))
+        data = decrypt16(s.recv(MSGLEN), session_key)
         return data
     except socket.error as err:
         print("Server communication error.\n", err)

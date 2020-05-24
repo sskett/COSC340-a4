@@ -9,7 +9,7 @@ CLI Arguments:
 """
 
 # Import dependencies
-import sys, socket, random, ssl
+import sys, socket, random, ssl, hmac, hashlib
 from Crypto.Cipher import AES
 from Crypto import Random
 
@@ -110,28 +110,34 @@ def word_guess(guess, display):
         return display
 
 
-blocksize = 16
-iv = 'This is an IV456'
-
-
-def encrypt(msg):
-    while len(msg) % blocksize != 0:
+def encrypt16(msg, key):
+    hmsg = msg
+    while len(msg) % 16 != 0:
         msg = msg + "^"
     iv = Random.new().read(16)
-    cipher = AES.new(game_key, AES.MODE_CBC, iv)
-    ciphertext = iv + cipher.encrypt(msg)
+    hsig = hmac_signature(hmsg.encode(encoding), iv)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    ciphertext = iv + hsig + cipher.encrypt(msg)
     return ciphertext
 
 
-def decrypt(msg):
+def decrypt16(msg, key):
     iv = msg[:16]
-    cipher = AES.new(game_key, AES.MODE_CBC, iv)
-    plaintext = (cipher.decrypt(msg[16:])).decode(encoding)
+    signature = msg[16:80].decode(encoding)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    plaintext = (cipher.decrypt(msg[80:])).decode(encoding)
     if plaintext.endswith('^'):
         while plaintext.endswith('^'):
             plaintext = plaintext[:-1]
-    print("Decrypted: " + str(msg) + " to " + plaintext + "\n")
+    h = hmac_signature(plaintext.encode(encoding), iv).decode(encoding)
+    if not h == signature:
+        print('HMAC failure') #TODO: raise an exception to exit the game
     return plaintext
+
+
+def hmac_signature(msg, key):
+    h = hmac.new(key, msg, hashlib.sha3_256)
+    return h.hexdigest().encode(encoding)
 
 
 def send_msg(msg, conn):
@@ -140,7 +146,7 @@ def send_msg(msg, conn):
     msg -- a string that is to be sent to the connected user
     conn -- a socket connection
     """
-    msg = encrypt(msg + "\n")
+    msg = encrypt16(msg + "\n", game_key, )
     conn.sendall(msg)
 
 
@@ -171,6 +177,8 @@ def setup_game(addr, display):
     for c in word:
         display.append("_")
     print("The word is:", word)
+    global game_hash
+    game_hash = hashlib.sha3_256(word.encode(encoding)).hexdigest()
 
 
 def recv_valid_msg(conn, msglen):
@@ -181,7 +189,7 @@ def recv_valid_msg(conn, msglen):
     msglen - the maximum message length for the connection
     """
     try:
-        data = decrypt(conn.recv(msglen))
+        data = decrypt16(conn.recv(msglen), game_key)
     except socket.error as err:
         print("Error receiving message:", err)
         close_conn(conn)
